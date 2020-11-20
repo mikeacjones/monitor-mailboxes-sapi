@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:api-gateway="http://www.mulesoft.org/schema/mule/api-gateway" xmlns:system-api-jira-mailboxes="http://www.mulesoft.org/schema/mule/system-api-jira-mailboxes"
+	xmlns:anypoint-mq="http://www.mulesoft.org/schema/mule/anypoint-mq"
+	xmlns:os="http://www.mulesoft.org/schema/mule/os" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:tls="http://www.mulesoft.org/schema/mule/tls" xmlns:email="http://www.mulesoft.org/schema/mule/email" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/email http://www.mulesoft.org/schema/mule/email/current/mule-email.xsd
+http://www.mulesoft.org/schema/mule/tls http://www.mulesoft.org/schema/mule/tls/current/mule-tls.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/os http://www.mulesoft.org/schema/mule/os/current/mule-os.xsd
+http://www.mulesoft.org/schema/mule/anypoint-mq http://www.mulesoft.org/schema/mule/anypoint-mq/current/mule-anypoint-mq.xsd
+http://www.mulesoft.org/schema/mule/system-api-jira-mailboxes http://www.mulesoft.org/schema/mule/system-api-jira-mailboxes/current/mule-system-api-jira-mailboxes.xsd
+http://www.mulesoft.org/schema/mule/api-gateway http://www.mulesoft.org/schema/mule/api-gateway/current/mule-api-gateway.xsd">
+	<global-property doc:name="Global Property" doc:id="2d684ed5-6552-423a-ba3c-bb2611589ce5" name="environment" value="local" />
+	<configuration-properties doc:name="Configuration properties" doc:id="06cf33ef-1194-42f0-ac68-26a446d4f0f5" file="config/config.${environment}.yaml" />
+	<email:imap-config name="Email_IMAP" doc:name="Email IMAP" doc:id="e490a9da-5885-4fe0-8a96-9e87fa02d3f5" >
+		<email:imap-connection host="outlook.office365.com" user="${exchange.username}" password="${exchange.password}" >
+			<email:properties >
+				<email:property key="mail.imap.ssl.enable" value="true" />
+			</email:properties>
+		</email:imap-connection>
+	</email:imap-config>
+	<http:request-config name="HTTP_Request_configuration" doc:name="HTTP Request configuration" doc:id="f4df0f23-c085-4d80-aa4b-166cc76e236f" basePath="/EWS/" >
+		<http:request-connection protocol="HTTPS" host="outlook.office365.com" port="443" >
+			<http:authentication >
+				<http:basic-authentication username="${exchange.username}" password="${exchange.password}" />
+			</http:authentication>
+		</http:request-connection>
+	</http:request-config>
+	<os:config name="ObjectStore_Config" doc:name="ObjectStore Config" doc:id="a58f7085-11cf-4aa6-b2ce-f83b2c48871c" >
+		<os:connection />
+	</os:config>
+	<os:object-store name="Object_store" doc:name="Object store" doc:id="46810d69-db3c-4aa8-a512-8fa4d63a7c4e" config-ref="ObjectStore_Config" />
+	<anypoint-mq:config name="Anypoint_MQ_Config" doc:name="Anypoint MQ Config" doc:id="ff3650eb-9611-47f9-b942-2371c28e0ae3" >
+		<anypoint-mq:connection clientId="${anypoint.mq.clientId}" clientSecret="${anypoint.mq.clientSecret}" />
+	</anypoint-mq:config>
+	<system-api-jira-mailboxes:config name="System_API___Jira_Mailboxes_Config" doc:name="System API - Jira Mailboxes Config" doc:id="18972348-83fa-443a-b3d1-961fd7c63467" property_host="${mailbox-api.host}" property_port="${mailbox-api.port}" property_protocol="${mailbox-api.protocol}" property_basePath="${mailbox-api.basePath}" />
+	<api-gateway:autodiscovery apiId="16486714" ignoreBasePath="true" doc:name="API Autodiscovery" doc:id="1f516d76-5dfc-4b74-bbe7-f05a244d3b3f" flowRef="system-api-jira-mailboxes-main" />
+</mule>

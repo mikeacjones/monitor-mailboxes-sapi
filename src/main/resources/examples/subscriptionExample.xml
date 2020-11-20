@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/">
+    <s:Header>
+        <h:ServerVersionInfo MajorVersion="15" MinorVersion="20" MajorBuildNumber="3564" MinorBuildNumber="28" Version="V2018_01_08" xmlns:h="http://schemas.microsoft.com/exchange/services/2006/types" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"/>
+    </s:Header>
+    <s:Body>
+        <m:SubscribeResponse xmlns:m="http://schemas.microsoft.com/exchange/services/2006/messages" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:t="http://schemas.microsoft.com/exchange/services/2006/types">
+            <m:ResponseMessages>
+                <m:SubscribeResponseMessage ResponseClass="Success">
+                    <m:ResponseCode>NoError</m:ResponseCode>
+                    <m:SubscriptionId>JwBzYTBwcjE3bWI0MzYyLm5hbXByZDE3LnByb2Qub3V0bG9vay5jb20QAAAAOUftAiKjkEOXSf+bBB2zrzd8ZK7IjNgIEAAAAPLZ2pOk67JOtMFpz5NCaQ0=</m:SubscriptionId>
+                    <m:Watermark>AQAAAHrlFcTMnQ1BgAHWh1SPqckENCsLAAAAAAA=</m:Watermark>
+                </m:SubscribeResponseMessage>
+            </m:ResponseMessages>
+        </m:SubscribeResponse>
+    </s:Body>
+</s:Envelope>

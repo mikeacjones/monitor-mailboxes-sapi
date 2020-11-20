@@ -1,0 +1,187 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:validation="http://www.mulesoft.org/schema/mule/validation" xmlns:system-api-jira-mailboxes="http://www.mulesoft.org/schema/mule/system-api-jira-mailboxes"
+	xmlns:anypoint-mq="http://www.mulesoft.org/schema/mule/anypoint-mq"
+	xmlns:batch="http://www.mulesoft.org/schema/mule/batch" xmlns:os="http://www.mulesoft.org/schema/mule/os" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:email="http://www.mulesoft.org/schema/mule/email" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/email http://www.mulesoft.org/schema/mule/email/current/mule-email.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/os http://www.mulesoft.org/schema/mule/os/current/mule-os.xsd
+http://www.mulesoft.org/schema/mule/batch http://www.mulesoft.org/schema/mule/batch/current/mule-batch.xsd
+http://www.mulesoft.org/schema/mule/anypoint-mq http://www.mulesoft.org/schema/mule/anypoint-mq/current/mule-anypoint-mq.xsd
+http://www.mulesoft.org/schema/mule/system-api-jira-mailboxes http://www.mulesoft.org/schema/mule/system-api-jira-mailboxes/current/mule-system-api-jira-mailboxes.xsd
+http://www.mulesoft.org/schema/mule/validation http://www.mulesoft.org/schema/mule/validation/current/mule-validation.xsd">
+	<sub-flow name="get-mailboxes" doc:id="10726eaa-7ade-4e00-a5e4-e6b6465523bc">
+		<until-successful maxRetries="5" doc:name="Until Successful" doc:id="1d5aff1a-4ab4-4d41-aa1d-f54d75d7b6f4" >
+			<system-api-jira-mailboxes:get-mailboxes doc:name="Get mailboxes" doc:id="ba9e3e5f-a6cd-45e6-953e-2b992fe43820" config-ref="System_API___Jira_Mailboxes_Config" />
+		</until-successful>
+		<ee:transform doc:name="Transform Message" doc:id="5c9a9aee-aaaa-4be0-84e3-e2f81daf4006" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload map $.mailbox]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</sub-flow>
+	<flow name="startup-flow" doc:id="80812958-b8dc-4668-a698-f43c61af09e3" initialState="stopped">
+		<scheduler doc:name="Scheduler" doc:id="cc7a0cfd-1eab-480c-bd24-13367a542898">
+			<scheduling-strategy>
+				<fixed-frequency timeUnit="DAYS" frequency="365"/>
+			</scheduling-strategy>
+		</scheduler>
+		<logger level="INFO" doc:name="Logger" doc:id="b0273823-23a5-4512-b404-43f1658adb4b" message="Startup flow starting"/>
+		<flow-ref doc:name="get-mailboxes" doc:id="cf72f3e1-3f4f-414f-9943-f6e889482d33" name="get-mailboxes" target="mailboxes" />
+		<logger level="INFO" doc:name="Logger" doc:id="9a65bc0a-9713-4f08-a371-ad1eb5d2c746" message='#["Found $(sizeOf(payload)) mailboxes"]'/>
+		<flow-ref doc:name="create-subscriptions" doc:id="5fecb68a-da86-495f-ac9d-2c2fd6ea1666" name="create-subscriptions" />
+		<logger level="INFO" doc:name="Logger" doc:id="bc1652fa-25f1-4c89-bffc-6fd3fa76cd98" message="Done creating subscriptions"/>
+	</flow>
+	<sub-flow name="create-subscriptions" doc:id="23cda038-687f-4a71-86ad-fbdc8c78d0e2">
+		<foreach doc:name="For Each" doc:id="10e9da5b-f698-4980-9437-eb8cd83de361" collection="#[vars.mailboxes]">
+			<logger level="INFO" doc:name="Logger" doc:id="f4bc314e-b587-4b63-9470-c11fbe440c10" message='#["Creating subscription for $(payload)"]'/>
+			<set-variable value="#[payload]" doc:name="Set Variable" doc:id="6188ebf9-dee7-460a-a243-dbd03c9235eb" variableName="mailbox" />
+			<ee:transform doc:name="create soap envelop" doc:id="f3555ef5-8a3a-412a-be8b-04b585cbe147">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/xml
+ns soap http://schemas.xmlsoap.org/soap/envelope/
+ns t http://schemas.microsoft.com/exchange/services/2006/types
+ns m http://schemas.microsoft.com/exchange/services/2006/messages
+---
+{
+    soap#Envelope: {
+        soap#Header: {
+            t#RequestServerVersion @(Version: "Exchange2016"): null
+        },
+        soap#Body: {
+            m#Subscribe: {
+                m#PullSubscriptionRequest: {
+                    t#FolderIds:  {
+                        t#DistinguishedFolderId @(Id: "inbox"): {
+                            t#Mailbox: {
+                                t#EmailAddress: vars.mailbox
+                            }
+                        }
+                    },
+                    t#EventTypes: {
+                    	t#EventType: "NewMailEvent"
+                    },
+                    t#Timeout: 10
+                }
+            }
+        }
+    }
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+			<http:request method="POST" doc:name="make soap call" doc:id="406be521-ed9d-42a8-93eb-643a9d8f4ed3" config-ref="HTTP_Request_configuration" path="Exchange.asmx" />
+			<os:store doc:name="store subscription info" doc:id="f492861b-8fa7-4207-b5a3-7e9e40638523" key='#["$(vars.mailbox)_subscription"]' objectStore="Object_store">
+				<os:value><![CDATA[#[%dw 2.0
+output application/json
+---
+payload.Envelope.Body.SubscribeResponse.ResponseMessages.SubscribeResponseMessage - "ResponseCode"]]]></os:value>
+			</os:store>
+			<logger level="INFO" doc:name="Logger" doc:id="03f3bf88-b115-4071-9c74-6cae9630f39a" message="Subscription created"/>
+		</foreach>
+	</sub-flow>
+	<flow name="get-new-messages" doc:id="371abc91-8323-4503-be9d-8e591e5f5433" maxConcurrency="1">
+		<scheduler doc:name="Scheduler" doc:id="e3f3c22f-1568-49a8-8c8d-b37bba59aa33">
+			<scheduling-strategy>
+				<fixed-frequency frequency="30" timeUnit="SECONDS"/>
+			</scheduling-strategy>
+		</scheduler>
+		<os:retrieve-all-keys doc:name="Retrieve all keys" doc:id="71d0cb3b-75c8-4219-95ba-8b957f44bd4d" objectStore="Object_store"/>
+		<ee:transform doc:name="Transform Message" doc:id="116024c2-6808-4796-b471-121aeeef7bbd" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload filter ($ matches /^.+_subscription$/) map ($ replace "_subscription" with "")]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<batch:job jobName="imap-testingBatch_Job" doc:id="942db8cb-b38b-4684-8f8d-c6de41ebb495" blockSize="1">
+			<batch:process-records>
+				<batch:step name="Batch_Step" doc:id="052397bb-87fe-4025-9002-1fe855220794">
+					<try doc:name="Try" doc:id="f6adf816-fd4c-4b46-8842-5579dc296a29" >
+						<set-variable value="#[payload default {}]" doc:name="Set Variable" doc:id="08853d53-0ac5-4242-a63f-05ad284a148e" variableName="mailbox" />
+						<flow-ref doc:name="get-new-events" doc:id="484b5153-7fc2-4fe3-a480-792550fd4716" name="get-new-events" />
+						<error-handler >
+							<on-error-continue enableNotifications="true" logException="true" doc:name="On Error Continue" doc:id="55e26d5e-d52b-43ba-9013-41151d656e71" type="ANY">
+								<set-variable value="#[[payload]]" doc:name="Set Variable" doc:id="824f0c7e-db11-414d-a7d5-8696173d95ce" variableName="mailboxes"/>
+								<flow-ref doc:name="recreate subscription" doc:id="29012e9a-026e-4eaf-a34e-04a49d96b253" name="create-subscriptions"/>
+							</on-error-continue>
+						</error-handler>
+					</try>
+				</batch:step>
+			</batch:process-records>
+			<batch:on-complete>
+				<logger level="INFO" doc:name="Logger" doc:id="f8fefa61-aff1-46b6-aa6c-f899bc73bbeb" />
+			</batch:on-complete>
+		</batch:job>
+	</flow>
+	<flow name="get-new-events" doc:id="c27f3599-a3d6-4cb1-9f12-a2712a3e2b12" >
+		<os:retrieve doc:name="Retrieve" doc:id="160e0203-ed54-46c2-a841-923feb76b523" key='#["$(vars.mailbox)_subscription"]' objectStore="Object_store" target="subscription" />
+		<ee:transform doc:name="Transform Message" doc:id="0b3c3345-c212-47d6-a055-3851b92a94b5">
+						<ee:message>
+							<ee:set-payload><![CDATA[%dw 2.0
+output application/xml
+
+ns soap http://schemas.xmlsoap.org/soap/envelope/
+ns t http://schemas.microsoft.com/exchange/services/2006/types
+ns m http://schemas.microsoft.com/exchange/services/2006/messages
+---
+{
+	soap#Envelope: {
+		soap#Header: {
+			t#RequestServerVersion @(Version: "Exchange2016"): null
+		},
+		soap#Body: {
+			m#GetEvents: {
+				m#SubscriptionId: vars.subscription.SubscriptionId,
+				m#Watermark: vars.subscription.Watermark
+			}
+		}
+	}
+}
+
+/*
+ * <?xml version="1.0" encoding="UTF-8"?>
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/" 
+xmlns:t="http://schemas.microsoft.com/exchange/services/2006/types" 
+xmlns:m="http://schemas.microsoft.com/exchange/services/2006/messages">
+  <soap:Header>
+    <t:RequestServerVersion Version="Exchange2016" />
+  </soap:Header>
+  <soap:Body>
+    <m:GetEvents xmlns="https://schemas.microsoft.com/exchange/services/2006/messages">
+        <m:SubscriptionId>JwBzYTBwcjE3bWI0MzYyLm5hbXByZDE3LnByb2Qub3V0bG9vay5jb20QAAAAs7HGvT5zwUW/wIS/vyNSmTXlIsrJjNgIEAAAAPLZ2pOk67JOtMFpz5NCaQ0=</m:SubscriptionId>
+        <m:Watermark>AQAAAHrlFcTMnQ1BgAHWh1SPqcmyeisLAAAAAAA=</m:Watermark>
+    </m:GetEvents>
+  </soap:Body>
+</soap:Envelope>
+ */]]></ee:set-payload>
+						</ee:message>
+					</ee:transform>
+		<http:request method="POST" doc:name="Request" doc:id="85ecfc20-3659-4a0e-b4cb-63224eef44f0" config-ref="HTTP_Request_configuration" path="Exchange.asmx" />
+		<validation:is-true doc:name="Is true" doc:id="c2280716-8481-433f-b2d2-a7a4e1436256" expression='#[payload..ResponseCode[0] == "NoError"]'/>
+		<logger level="INFO" doc:name="Logger" doc:id="65c797d5-a11b-437e-995c-8706355c6581" message="#[payload]"/>
+		<os:store doc:name="Store" doc:id="aa566e61-62ad-42cd-b328-22a1d13824ac" key='#["$(vars.mailbox)_subscription"]' objectStore="Object_store">
+						<os:value><![CDATA[#[output application/json
+---
+vars.subscription - "Watermark" ++ { Watermark: payload..Watermark[-1] }]]]></os:value>
+					</os:store>
+		<choice doc:name="Choice" doc:id="3895efe5-ba56-4f97-a5d1-11e29ae18c34">
+						<when expression="#[sizeOf(payload..ItemId default []) &gt; 0]">
+							<logger level="INFO" doc:name="Logger" doc:id="997a2484-cbaf-4481-8290-d4c3ddf458bc" message='#["Found $(sizeOf(payload..ItemId default [])) new messages"]' />
+				<anypoint-mq:publish doc:name="Publish" doc:id="3e013bb1-d29e-46da-a203-92e51b2ab50a" config-ref="Anypoint_MQ_Config" destination="${anypoint.mq.destination}">
+						<anypoint-mq:body><![CDATA[#[output application/json
+---
+payload..ItemId map {
+	Id: $.@Id,
+	ChangeKey: $.@ChangeKey
+}]]]></anypoint-mq:body>
+					</anypoint-mq:publish>
+						</when>
+					</choice>
+	</flow>
+</mule>

@@ -1,0 +1,17 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<types:mule xmlns:types="http://www.mulesoft.org/schema/mule/types">
+  <types:catalog>
+    <types:type name="subscriptionCreationResult" format="xml">
+      <types:example format="xml" element="{http://schemas.xmlsoap.org/soap/envelope/}Envelope" location="examples/subscriptionExample.xml"/>
+    </types:type>
+  </types:catalog>
+  <types:enrichment select="#406be521-ed9d-42a8-93eb-643a9d8f4ed3">
+    <types:processor-declaration>
+      <types:output-event>
+        <types:message>
+          <types:payload type="subscriptionCreationResult"/>
+        </types:message>
+      </types:output-event>
+    </types:processor-declaration>
+  </types:enrichment>
+</types:mule>
